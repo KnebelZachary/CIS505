@@ -1,5 +1,3 @@
-
-
 public class Fan {
      // Constants for fan speed
      public static final int STOPPED = 0;
