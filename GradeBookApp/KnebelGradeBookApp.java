@@ -50,6 +50,8 @@ public class KnebelGradeBookApp extends Application {
         gradeLabel = new Label();
         errorLabel = new Label();
 
+        
+
         scoreField.setOnKeyReleased(event -> calculateGrade());
         totalPointsField.setOnKeyReleased(event -> calculateGrade());
 
@@ -70,24 +72,28 @@ public class KnebelGradeBookApp extends Application {
         grid.add(new Label("Grade:"), 0, 4);
         grid.add(gradeLabel, 1, 4);
         
-        // Error Label
-        grid.add(errorLabel, 3,6);
+        errorLabel.setWrapText(true);
+        HBox errorBox = new HBox(errorLabel);
+        errorBox.setPadding(new Insets(5, 0, 0, 0));
+        errorBox.setAlignment(Pos.CENTER_LEFT);
+        errorBox.setMaxWidth(Double.MAX_VALUE);
+        grid.add(errorBox, 0, 6, 4, 1);
 
         // Buttons
 
         Button viewGradesButton = new Button("View Grades");
         viewGradesButton.setOnAction(e -> loadGradesToTable());
-        viewGradesButton.setStyle("-fx-background-color: #aec6cf; -fx-text-fill: white;"); // Pastel blue
+        viewGradesButton.setStyle("-fx-background-color: #18a7db; -fx-text-fill: white;");
 
 
         Button clearButton = new Button("Clear");
         clearButton.setOnAction(e -> clearForm());
-        clearButton.setStyle("-fx-background-color: #f7a1a3; -fx-text-fill: white;"); // Pastel red
+        clearButton.setStyle("-fx-background-color: #f73131; -fx-text-fill: white;"); 
 
 
         Button saveButton = new Button("Save");
         saveButton.setOnAction(e -> saveGradeEntry());
-        saveButton.setStyle("-fx-background-color: #b0e57c; -fx-text-fill: white;"); // Pastel green
+        saveButton.setStyle("-fx-background-color: #06c20f; -fx-text-fill: white;"); 
 
         HBox leftButtonContainer = new HBox(viewGradesButton);
         leftButtonContainer.setAlignment(Pos.BASELINE_LEFT);
@@ -148,6 +154,7 @@ public class KnebelGradeBookApp extends Application {
                 gradeLabel.setText(grade); // Display calculated grade in label
             }
         } catch (NumberFormatException e) {
+            errorLabel.setStyle("-fx-text-fill: red;");
             errorLabel.setText("");
         }
     }
@@ -161,30 +168,71 @@ public class KnebelGradeBookApp extends Application {
     }
 
     private void saveGradeEntry() {
+        // Get input values
         String firstName = firstNameField.getText();
         String lastName = lastNameField.getText();
         String course = courseField.getText();
-        String score = scoreField.getText();
-        String totalPoints = totalPointsField.getText();
-        String grade = gradeLabel.getText();
-
-        if (firstName.isEmpty() || lastName.isEmpty() || course.isEmpty() || score.isEmpty() || totalPoints.isEmpty() || grade.isEmpty()) {
+        String scoreText = scoreField.getText();
+        String totalPointsText = totalPointsField.getText();
+    
+        // Check if all fields are filled
+        if (firstName.isEmpty() || lastName.isEmpty() || course.isEmpty() || scoreText.isEmpty() || totalPointsText.isEmpty()) {
+            errorLabel.setStyle("-fx-text-fill: red;");
             errorLabel.setText("All fields must be filled in to save.");
             return;
         }
 
-        String csvLine = firstName + "," + lastName + "," + course + "," + score + "," + totalPoints + "," + grade;
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(CSV_FILE_PATH, true))) {
-            if (Files.size(Paths.get(CSV_FILE_PATH)) == 0) {
-                writer.write("firstName,lastName,course,score,totalPoints,grade\n");
+         // Check for commas in the fields
+         if (firstName.contains(",") || lastName.contains(",") || course.contains(",") || scoreText.contains(",") || totalPointsText.contains(",")) {
+            errorLabel.setStyle("-fx-text-fill: red;");
+            errorLabel.setText("Commas are not allowed in the input fields.");
+            return;
+         }
+    
+        try {
+            double score = Double.parseDouble(scoreText);
+            double totalPoints = Double.parseDouble(totalPointsText);
+    
+            // Validate numeric values
+            if (totalPoints <= 0) {
+                errorLabel.setStyle("-fx-text-fill: red;");
+                errorLabel.setText("Total points must be greater than 0.");
+                return;
             }
-            writer.write(csvLine + "\n");
-            errorLabel.setText("Entry saved successfully.");
-            clearForm();
-        } catch (IOException e) {
-            errorLabel.setText("Error saving entry: " + e.getMessage());
+            if (score > totalPoints) {
+                errorLabel.setStyle("-fx-text-fill: red;");
+                errorLabel.setText("Score cannot exceed total points.");
+                return;
+            }
+
+            
+    
+            // Calculate grade
+            double percentage = (score / totalPoints) * 100;
+            String grade = determineGrade(percentage);
+    
+            // Save entry to CSV
+            String csvLine = firstName + "," + lastName + "," + course + "," + score + "," + totalPoints + "," + grade;
+            
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(CSV_FILE_PATH, true))) {
+                // Add header if the file is empty
+                if (Files.size(Paths.get(CSV_FILE_PATH)) == 0) {
+                    writer.write("firstName,lastName,course,score,totalPoints,grade\n");
+                }
+                writer.write(csvLine + "\n");
+                errorLabel.setStyle("-fx-text-fill: green;");
+                errorLabel.setText("Entry saved successfully.");
+                clearForm();
+            } catch (IOException e) {
+                errorLabel.setStyle("-fx-text-fill: red;");
+                errorLabel.setText("Error saving entry: " + e.getMessage());
+            }
+        } catch (NumberFormatException e) {
+            errorLabel.setStyle("-fx-text-fill: red;");
+            errorLabel.setText("Please enter valid numeric values for score and total points.");
         }
     }
+    
 
     private void clearForm() {
         firstNameField.clear();
@@ -208,6 +256,7 @@ public class KnebelGradeBookApp extends Application {
                 }
             }
         } catch (IOException e) {
+            errorLabel.setStyle("-fx-text-fill: red;");
             errorLabel.setText("Error loading entries: " + e.getMessage());
         }
     }
